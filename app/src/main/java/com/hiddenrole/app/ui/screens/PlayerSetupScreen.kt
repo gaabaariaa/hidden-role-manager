@@ -2,6 +2,7 @@ package com.hiddenrole.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.FlowRow
@@ -39,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.hiddenrole.app.state.GameStateHolder
 import com.hiddenrole.app.ui.components.PlayerAvatar
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun PlayerSetupScreen(
     state: GameStateHolder,
