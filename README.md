@@ -1,0 +1,1 @@
+# hidden-role-manager
