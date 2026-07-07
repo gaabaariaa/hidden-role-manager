@@ -14,17 +14,25 @@ import com.hiddenrole.app.ui.screens.HomeScreen
 import com.hiddenrole.app.ui.screens.PlayerSetupScreen
 import com.hiddenrole.app.ui.screens.PresetBuilderScreen
 import com.hiddenrole.app.ui.screens.RevealScreen
+import com.hiddenrole.app.ui.screens.RosterScreen
+import com.hiddenrole.app.ui.screens.ScenariosScreen
+import com.hiddenrole.app.ui.screens.SettingsScreen
+import com.hiddenrole.app.ui.screens.StatsScreen
 
 object Routes {
     const val HOME = "home"
-    const val PRESET_BUILDER = "preset_builder/{presetId}"
-    const val PLAYERS = "players"
+    const val SCENARIOS = "scenarios"
+    const val SCENARIO_BUILDER = "scenario_builder/{presetId}"
+    const val ROSTER = "roster"
+    const val GAME_PLAYERS = "game_players"
     const val GAME_CONFIG = "game_config"
     const val REVEAL = "reveal"
     const val GAME = "game"
     const val HISTORY = "history"
+    const val STATS = "stats"
+    const val SETTINGS = "settings"
 
-    fun presetBuilder(presetId: String) = "preset_builder/$presetId"
+    fun scenarioBuilder(presetId: String) = "scenario_builder/$presetId"
 }
 
 @Composable
@@ -32,20 +40,24 @@ fun AppNavHost(navController: NavHostController, state: GameStateHolder) {
     NavHost(navController = navController, startDestination = Routes.HOME) {
 
         composable(Routes.HOME) {
-            HomeScreen(
+            HomeScreen(state = state, onNavigate = { route -> navController.navigate(route) })
+        }
+
+        composable(Routes.SCENARIOS) {
+            ScenariosScreen(
                 state = state,
-                onCreatePreset = { navController.navigate(Routes.presetBuilder("new")) },
-                onEditPreset = { preset -> navController.navigate(Routes.presetBuilder(preset.id)) },
+                onBack = { navController.popBackStack() },
+                onCreatePreset = { navController.navigate(Routes.scenarioBuilder("new")) },
+                onEditPreset = { preset -> navController.navigate(Routes.scenarioBuilder(preset.id)) },
                 onPlayPreset = { preset ->
                     state.selectPresetToPlay(preset)
-                    navController.navigate(Routes.PLAYERS)
-                },
-                onOpenHistory = { navController.navigate(Routes.HISTORY) }
+                    navController.navigate(Routes.GAME_PLAYERS)
+                }
             )
         }
 
         composable(
-            Routes.PRESET_BUILDER,
+            Routes.SCENARIO_BUILDER,
             arguments = listOf(navArgument("presetId") { type = NavType.StringType })
         ) { backStackEntry ->
             val presetId = backStackEntry.arguments?.getString("presetId") ?: "new"
@@ -56,7 +68,11 @@ fun AppNavHost(navController: NavHostController, state: GameStateHolder) {
             )
         }
 
-        composable(Routes.PLAYERS) {
+        composable(Routes.ROSTER) {
+            RosterScreen(state = state, onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.GAME_PLAYERS) {
             PlayerSetupScreen(
                 state = state,
                 onNext = { navController.navigate(Routes.GAME_CONFIG) },
@@ -99,10 +115,15 @@ fun AppNavHost(navController: NavHostController, state: GameStateHolder) {
         }
 
         composable(Routes.HISTORY) {
-            HistoryScreen(
-                state = state,
-                onBack = { navController.popBackStack() }
-            )
+            HistoryScreen(state = state, onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.STATS) {
+            StatsScreen(state = state, onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.SETTINGS) {
+            SettingsScreen(state = state, onBack = { navController.popBackStack() })
         }
     }
 }

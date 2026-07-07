@@ -58,7 +58,10 @@ fun GameScreen(
             state.timerSeconds -= 1
             if (state.timerSeconds <= 0) {
                 state.timerRunning = false
-                soundHelper.playPhaseEndAlert()
+                soundHelper.playPhaseEndAlert(
+                    soundEnabled = state.settings.soundEnabled,
+                    vibrationEnabled = state.settings.vibrationEnabled
+                )
             }
         }
     }
@@ -201,7 +204,7 @@ fun GameScreen(
                     preset.teams.forEach { team ->
                         Button(
                             onClick = {
-                                state.finishGame(team.name)
+                                state.finishGame(team.id)
                                 showFinishDialog = false
                                 onGameFinished()
                             },

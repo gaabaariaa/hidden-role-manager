@@ -45,12 +45,35 @@ class Player(
 
 enum class GamePhase { DAY, NIGHT }
 
+/** یک بازیکن ثابت که به لیست دائمی («بازیکنان») اضافه شده. */
+@Serializable
+data class SavedPlayer(
+    val id: Int,
+    val name: String
+)
+
+@Serializable
+data class AppSettings(
+    val soundEnabled: Boolean = true,
+    val vibrationEnabled: Boolean = true,
+    val defaultDayTimerSeconds: Int = 120,
+    val defaultNightTimerSeconds: Int = 60
+)
+
+@Serializable
+data class PlayerResult(
+    val name: String,
+    val roleName: String,
+    val teamName: String,
+    val won: Boolean
+)
+
 @Serializable
 data class GameHistoryEntry(
     val id: Long,
     val date: String,
     val presetName: String,
-    val playerNames: List<String>,
+    val results: List<PlayerResult>,
     val winnerTeamName: String,
     val totalRounds: Int
 )

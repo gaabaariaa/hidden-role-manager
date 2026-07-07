@@ -21,13 +21,17 @@ class SoundVibrationHelper(private val context: Context) {
         }
     }
 
-    fun playPhaseEndAlert() {
-        try {
-            toneGenerator?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 400)
-        } catch (e: Exception) {
-            // اگه صدا در دسترس نبود، فقط ویبره کافیه
+    fun playPhaseEndAlert(soundEnabled: Boolean = true, vibrationEnabled: Boolean = true) {
+        if (soundEnabled) {
+            try {
+                toneGenerator?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 400)
+            } catch (e: Exception) {
+                // اگه صدا در دسترس نبود، فقط ویبره کافیه
+            }
         }
-        vibrate()
+        if (vibrationEnabled) {
+            vibrate()
+        }
     }
 
     private fun vibrate() {

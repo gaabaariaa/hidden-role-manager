@@ -14,6 +14,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.compose.rememberNavController
 import com.hiddenrole.app.data.HistoryStorage
 import com.hiddenrole.app.data.PresetStorage
+import com.hiddenrole.app.data.RosterStorage
+import com.hiddenrole.app.data.SettingsStorage
 import com.hiddenrole.app.navigation.AppNavHost
 import com.hiddenrole.app.state.GameStateHolder
 import com.hiddenrole.app.ui.theme.HiddenRoleTheme
@@ -24,7 +26,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             val presetStorage = remember { PresetStorage(applicationContext) }
             val historyStorage = remember { HistoryStorage(applicationContext) }
-            val stateHolder = remember { GameStateHolder(presetStorage, historyStorage) }
+            val rosterStorage = remember { RosterStorage(applicationContext) }
+            val settingsStorage = remember { SettingsStorage(applicationContext) }
+            val stateHolder = remember {
+                GameStateHolder(presetStorage, historyStorage, rosterStorage, settingsStorage)
+            }
             val navController = rememberNavController()
 
             HiddenRoleTheme {

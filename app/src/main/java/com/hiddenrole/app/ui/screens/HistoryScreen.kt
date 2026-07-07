@@ -48,14 +48,16 @@ fun HistoryScreen(
                     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(entry.date, style = MaterialTheme.typography.bodySmall)
-                            Text("قالب: ${entry.presetName}", style = MaterialTheme.typography.bodySmall)
+                            Text("سناریو: ${entry.presetName}", style = MaterialTheme.typography.bodySmall)
                             Text(
                                 "برنده: ${entry.winnerTeamName}",
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text("تعداد دور: ${entry.totalRounds}")
-                            Text("بازیکن‌ها: ${entry.playerNames.joinToString("، ")}")
+                            Text(
+                                "بازیکن‌ها: ${entry.results.joinToString("، ") { r -> "${r.name} (${r.roleName})" }}"
+                            )
                         }
                     }
                 }
