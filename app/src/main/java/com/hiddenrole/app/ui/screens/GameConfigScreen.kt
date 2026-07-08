@@ -1,5 +1,6 @@
 package com.hiddenrole.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -24,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddenrole.app.state.GameStateHolder
+import com.hiddenrole.app.util.parseHexColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +61,7 @@ fun GameConfigScreen(
     ) { padding ->
         if (preset == null) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("قالبی انتخاب نشده")
+                Text("سناریویی انتخاب نشده")
             }
         } else {
             Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
@@ -68,28 +72,39 @@ fun GameConfigScreen(
                 )
                 Spacer(Modifier.height(16.dp))
 
-                preset.specialRoles().forEach { role ->
-                    val count = state.roleCounts[role.id] ?: 0
+                preset.specialSlots().forEach { slot ->
+                    val count = state.roleCounts[slot.id] ?: 0
+                    val templateName = state.roleTemplateFor(slot.roleTemplateId)?.name ?: "نقش حذف‌شده"
+                    val teamColor = preset.team(slot.teamId)?.colorHex?.let { parseHexColor(it) }
+                        ?: MaterialTheme.colorScheme.primary
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(role.name, style = MaterialTheme.typography.bodyLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .background(teamColor, CircleShape)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(templateName, style = MaterialTheme.typography.bodyLarge)
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = {
-                                if (count > 0) state.roleCounts[role.id] = count - 1
+                                if (count > 0) state.roleCounts[slot.id] = count - 1
                             }) { Text("−", style = MaterialTheme.typography.titleLarge) }
                             Text(count.toString(), modifier = Modifier.padding(horizontal = 12.dp))
                             IconButton(onClick = {
-                                state.roleCounts[role.id] = count + 1
+                                state.roleCounts[slot.id] = count + 1
                             }) { Text("+", style = MaterialTheme.typography.titleLarge) }
                         }
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
-                val fillerName = preset.fillerRole()?.name ?: "-"
+                val fillerName = preset.fillerSlot()?.let { state.roleTemplateFor(it.roleTemplateId)?.name } ?: "-"
                 val remaining = (state.players.size - state.totalConfiguredRoles()).coerceAtLeast(0)
                 Text("بقیه‌ی بازیکن‌ها ($remaining نفر) نقش «$fillerName» می‌گیرن.")
             }

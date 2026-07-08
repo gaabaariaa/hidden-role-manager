@@ -5,19 +5,37 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.serialization.Serializable
 
+/** یه قابلیت/توانایی که می‌تونه به یک یا چند نقش اضافه بشه (مثل «کشتن شبانه»، «نجات دادن»). */
 @Serializable
-data class TeamDef(
+data class Ability(
     val id: String,
-    val name: String
+    val name: String,
+    val description: String = "",
+    val wakesAtNight: Boolean = false
+)
+
+/** یه نقش قابل استفاده‌ی مجدد، شامل چند قابلیت انتخابی؛ مستقل از هر سناریوی خاص. */
+@Serializable
+data class RoleTemplate(
+    val id: String,
+    val name: String,
+    val description: String = "",
+    val abilityIds: List<String> = emptyList()
 )
 
 @Serializable
-data class RoleDef(
+data class TeamDef(
     val id: String,
     val name: String,
+    val colorHex: String = "#7C4DFF"
+)
+
+/** استفاده از یه نقش (از کتابخونه‌ی نقش‌ها) در یه سناریوی خاص، وصل‌شده به یه تیم. */
+@Serializable
+data class ScenarioRole(
+    val id: String,
+    val roleTemplateId: String,
     val teamId: String,
-    val description: String = "",
-    val hasNightAction: Boolean = false,
     val isFiller: Boolean = false,
     val defaultCount: Int = 1
 )
@@ -27,25 +45,35 @@ data class RolePreset(
     val id: String,
     val name: String,
     val teams: List<TeamDef>,
-    val roles: List<RoleDef>
+    val roleSlots: List<ScenarioRole>,
+    val nightOrder: List<String> = emptyList()
 ) {
-    fun fillerRole(): RoleDef? = roles.find { it.isFiller }
-    fun specialRoles(): List<RoleDef> = roles.filterNot { it.isFiller }
+    fun fillerSlot(): ScenarioRole? = roleSlots.find { it.isFiller }
+    fun specialSlots(): List<ScenarioRole> = roleSlots.filterNot { it.isFiller }
     fun teamName(teamId: String): String = teams.find { it.id == teamId }?.name ?: "بدون تیم"
+    fun team(teamId: String): TeamDef? = teams.find { it.id == teamId }
 }
+
+/** نقش نهایی که موقع تقسیم، به یه بازیکن اختصاص داده شده (اطلاعات نقش در همون لحظه ذخیره می‌شه). */
+data class AssignedRole(
+    val roleTemplateId: String,
+    val teamId: String,
+    val name: String,
+    val description: String,
+    val abilityNames: List<String>
+)
 
 class Player(
     val id: Int,
     val name: String
 ) {
-    var role: RoleDef? by mutableStateOf(null)
+    var role: AssignedRole? by mutableStateOf(null)
     var isAlive: Boolean by mutableStateOf(true)
     var votes: Int by mutableStateOf(0)
 }
 
 enum class GamePhase { DAY, NIGHT }
 
-/** یک بازیکن ثابت که به لیست دائمی («بازیکنان») اضافه شده. */
 @Serializable
 data class SavedPlayer(
     val id: Int,
@@ -56,8 +84,7 @@ data class SavedPlayer(
 data class AppSettings(
     val soundEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true,
-    val defaultDayTimerSeconds: Int = 120,
-    val defaultNightTimerSeconds: Int = 60
+    val defaultDayTimerSeconds: Int = 120
 )
 
 @Serializable

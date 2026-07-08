@@ -40,11 +40,10 @@ fun SettingsScreen(
     var soundEnabled by remember { mutableStateOf(state.settings.soundEnabled) }
     var vibrationEnabled by remember { mutableStateOf(state.settings.vibrationEnabled) }
     var dayTimer by remember { mutableStateOf(state.settings.defaultDayTimerSeconds) }
-    var nightTimer by remember { mutableStateOf(state.settings.defaultNightTimerSeconds) }
     var showResetDialog by remember { mutableStateOf(false) }
 
     fun persist() {
-        state.updateSettings(AppSettings(soundEnabled, vibrationEnabled, dayTimer, nightTimer))
+        state.updateSettings(AppSettings(soundEnabled, vibrationEnabled, dayTimer))
     }
 
     Scaffold(
@@ -64,14 +63,9 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(20.dp))
-            Text("زمان پیش‌فرض روز", style = MaterialTheme.typography.titleSmall)
+            Text("مدت زمان تایمر بحث روز", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(4.dp))
             TimerStepper(seconds = dayTimer, onChange = { dayTimer = it; persist() })
-
-            Spacer(Modifier.height(20.dp))
-            Text("زمان پیش‌فرض شب", style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(4.dp))
-            TimerStepper(seconds = nightTimer, onChange = { nightTimer = it; persist() })
 
             Spacer(Modifier.height(32.dp))
             OutlinedButton(
@@ -93,7 +87,6 @@ fun SettingsScreen(
                     soundEnabled = state.settings.soundEnabled
                     vibrationEnabled = state.settings.vibrationEnabled
                     dayTimer = state.settings.defaultDayTimerSeconds
-                    nightTimer = state.settings.defaultNightTimerSeconds
                     showResetDialog = false
                 }) { Text("پاک کن") }
             },

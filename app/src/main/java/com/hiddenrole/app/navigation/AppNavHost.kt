@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.hiddenrole.app.state.GameStateHolder
+import com.hiddenrole.app.ui.screens.AbilitiesScreen
 import com.hiddenrole.app.ui.screens.GameConfigScreen
 import com.hiddenrole.app.ui.screens.GameScreen
 import com.hiddenrole.app.ui.screens.HistoryScreen
@@ -14,6 +15,7 @@ import com.hiddenrole.app.ui.screens.HomeScreen
 import com.hiddenrole.app.ui.screens.PlayerSetupScreen
 import com.hiddenrole.app.ui.screens.PresetBuilderScreen
 import com.hiddenrole.app.ui.screens.RevealScreen
+import com.hiddenrole.app.ui.screens.RoleTemplatesScreen
 import com.hiddenrole.app.ui.screens.RosterScreen
 import com.hiddenrole.app.ui.screens.ScenariosScreen
 import com.hiddenrole.app.ui.screens.SettingsScreen
@@ -23,6 +25,8 @@ object Routes {
     const val HOME = "home"
     const val SCENARIOS = "scenarios"
     const val SCENARIO_BUILDER = "scenario_builder/{presetId}"
+    const val ROLE_TEMPLATES = "role_templates"
+    const val ABILITIES = "abilities"
     const val ROSTER = "roster"
     const val GAME_PLAYERS = "game_players"
     const val GAME_CONFIG = "game_config"
@@ -52,8 +56,18 @@ fun AppNavHost(navController: NavHostController, state: GameStateHolder) {
                 onPlayPreset = { preset ->
                     state.selectPresetToPlay(preset)
                     navController.navigate(Routes.GAME_PLAYERS)
-                }
+                },
+                onOpenRoleTemplates = { navController.navigate(Routes.ROLE_TEMPLATES) },
+                onOpenAbilities = { navController.navigate(Routes.ABILITIES) }
             )
+        }
+
+        composable(Routes.ROLE_TEMPLATES) {
+            RoleTemplatesScreen(state = state, onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.ABILITIES) {
+            AbilitiesScreen(state = state, onBack = { navController.popBackStack() })
         }
 
         composable(

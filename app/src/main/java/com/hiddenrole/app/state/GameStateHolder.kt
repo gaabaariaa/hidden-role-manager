@@ -5,19 +5,24 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.hiddenrole.app.data.AbilityStorage
 import com.hiddenrole.app.data.HistoryStorage
 import com.hiddenrole.app.data.PresetStorage
+import com.hiddenrole.app.data.RoleTemplateStorage
 import com.hiddenrole.app.data.RosterStorage
 import com.hiddenrole.app.data.SettingsStorage
 import com.hiddenrole.app.data.classicMafiaPreset
+import com.hiddenrole.app.model.Ability
 import com.hiddenrole.app.model.AppSettings
+import com.hiddenrole.app.model.AssignedRole
 import com.hiddenrole.app.model.GameHistoryEntry
 import com.hiddenrole.app.model.GamePhase
 import com.hiddenrole.app.model.Player
 import com.hiddenrole.app.model.PlayerResult
-import com.hiddenrole.app.model.RoleDef
 import com.hiddenrole.app.model.RolePreset
+import com.hiddenrole.app.model.RoleTemplate
 import com.hiddenrole.app.model.SavedPlayer
+import com.hiddenrole.app.model.ScenarioRole
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,9 +32,15 @@ class GameStateHolder(
     private val presetStorage: PresetStorage,
     private val historyStorage: HistoryStorage,
     private val rosterStorage: RosterStorage,
-    private val settingsStorage: SettingsStorage
+    private val settingsStorage: SettingsStorage,
+    private val abilityStorage: AbilityStorage,
+    private val roleTemplateStorage: RoleTemplateStorage
 ) {
-    // --- قالب‌های نقش (سناریوها) ---
+    // --- کتابخونه‌ی قابلیت‌ها و نقش‌ها (قوانین کلی) ---
+    val abilities = mutableStateListOf<Ability>()
+    val roleTemplates = mutableStateListOf<RoleTemplate>()
+
+    // --- سناریوها ---
     val presets = mutableStateListOf<RolePreset>()
     var selectedPreset by mutableStateOf<RolePreset?>(null)
 
@@ -41,26 +52,63 @@ class GameStateHolder(
 
     // --- بازیکن‌های همین بازی و تنظیم نقش ---
     val players = mutableStateListOf<Player>()
-    val roleCounts = mutableStateMapOf<String, Int>() // roleId -> count
+    val roleCounts = mutableStateMapOf<String, Int>() // scenarioRoleId -> count
 
     var revealIndex by mutableStateOf(0)
     var phase by mutableStateOf(GamePhase.NIGHT)
     var roundNumber by mutableStateOf(1)
 
-    var timerSeconds by mutableStateOf(60)
+    var timerSeconds by mutableStateOf(0)
     var timerRunning by mutableStateOf(false)
     var timerDurationDay by mutableStateOf(120)
-    var timerDurationNight by mutableStateOf(60)
 
     var votingActive by mutableStateOf(false)
+
+    val challengeQueue = mutableStateListOf<Int>()
 
     val history = mutableStateListOf<GameHistoryEntry>()
 
     init {
+        abilities.addAll(abilityStorage.load())
+        roleTemplates.addAll(roleTemplateStorage.load())
         presets.addAll(presetStorage.load())
         history.addAll(historyStorage.load())
         roster.addAll(rosterStorage.load())
         settings = settingsStorage.load()
+    }
+
+    // ---------- کتابخونه‌ی قابلیت‌ها ----------
+    fun abilityFor(id: String): Ability? = abilities.find { it.id == id }
+
+    fun saveAbility(ability: Ability) {
+        val index = abilities.indexOfFirst { it.id == ability.id }
+        if (index >= 0) abilities[index] = ability else abilities.add(ability)
+        abilityStorage.save(abilities.toList())
+    }
+
+    fun isAbilityInUse(id: String): Boolean = roleTemplates.any { it.abilityIds.contains(id) }
+
+    fun deleteAbility(id: String) {
+        if (isAbilityInUse(id)) return
+        abilities.removeAll { it.id == id }
+        abilityStorage.save(abilities.toList())
+    }
+
+    // ---------- کتابخونه‌ی نقش‌ها ----------
+    fun roleTemplateFor(id: String): RoleTemplate? = roleTemplates.find { it.id == id }
+
+    fun saveRoleTemplate(template: RoleTemplate) {
+        val index = roleTemplates.indexOfFirst { it.id == template.id }
+        if (index >= 0) roleTemplates[index] = template else roleTemplates.add(template)
+        roleTemplateStorage.save(roleTemplates.toList())
+    }
+
+    fun isRoleTemplateInUse(id: String): Boolean = presets.any { preset -> preset.roleSlots.any { it.roleTemplateId == id } }
+
+    fun deleteRoleTemplate(id: String) {
+        if (isRoleTemplateInUse(id)) return
+        roleTemplates.removeAll { it.id == id }
+        roleTemplateStorage.save(roleTemplates.toList())
     }
 
     // ---------- مدیریت سناریوها ----------
@@ -78,7 +126,7 @@ class GameStateHolder(
     fun selectPresetToPlay(preset: RolePreset) {
         selectedPreset = preset
         roleCounts.clear()
-        preset.specialRoles().forEach { role -> roleCounts[role.id] = role.defaultCount }
+        preset.specialSlots().forEach { slot -> roleCounts[slot.id] = slot.defaultCount }
     }
 
     // ---------- لیست دائمی بازیکن‌ها ----------
@@ -111,6 +159,26 @@ class GameStateHolder(
 
     fun removePlayer(id: Int) {
         players.removeAll { it.id == id }
+        challengeQueue.remove(id)
+    }
+
+    // ---------- ترتیب بازیکن‌ها ----------
+    fun movePlayerUp(id: Int) {
+        val index = players.indexOfFirst { it.id == id }
+        if (index > 0) {
+            val temp = players[index - 1]
+            players[index - 1] = players[index]
+            players[index] = temp
+        }
+    }
+
+    fun movePlayerDown(id: Int) {
+        val index = players.indexOfFirst { it.id == id }
+        if (index in 0 until players.size - 1) {
+            val temp = players[index + 1]
+            players[index + 1] = players[index]
+            players[index] = temp
+        }
     }
 
     // ---------- تقسیم نقش ----------
@@ -119,23 +187,35 @@ class GameStateHolder(
     fun canAssignRoles(): Boolean {
         val preset = selectedPreset ?: return false
         return players.size >= 3 &&
-            preset.fillerRole() != null &&
+            preset.fillerSlot() != null &&
             totalConfiguredRoles() <= players.size
+    }
+
+    private fun resolveAssignedRole(slot: ScenarioRole): AssignedRole {
+        val template = roleTemplateFor(slot.roleTemplateId)
+        val abilityNames = template?.abilityIds?.mapNotNull { abilityFor(it)?.name } ?: emptyList()
+        return AssignedRole(
+            roleTemplateId = slot.roleTemplateId,
+            teamId = slot.teamId,
+            name = template?.name ?: "-",
+            description = template?.description ?: "",
+            abilityNames = abilityNames
+        )
     }
 
     fun assignRoles() {
         val preset = selectedPreset ?: return
-        val filler = preset.fillerRole() ?: return
-        val pool = mutableListOf<RoleDef>()
-        preset.specialRoles().forEach { role ->
-            val count = roleCounts[role.id] ?: 0
-            repeat(count) { pool.add(role) }
+        val fillerSlot = preset.fillerSlot() ?: return
+        val pool = mutableListOf<ScenarioRole>()
+        preset.specialSlots().forEach { slot ->
+            val count = roleCounts[slot.id] ?: 0
+            repeat(count) { pool.add(slot) }
         }
-        while (pool.size < players.size) pool.add(filler)
+        while (pool.size < players.size) pool.add(fillerSlot)
         pool.shuffle()
 
         players.forEachIndexed { index, player ->
-            player.role = pool[index]
+            player.role = resolveAssignedRole(pool[index])
             player.isAlive = true
             player.votes = 0
         }
@@ -143,10 +223,10 @@ class GameStateHolder(
         roundNumber = 1
         phase = GamePhase.NIGHT
         timerDurationDay = settings.defaultDayTimerSeconds
-        timerDurationNight = settings.defaultNightTimerSeconds
-        timerSeconds = timerDurationNight
+        timerSeconds = 0
         timerRunning = false
         votingActive = false
+        challengeQueue.clear()
     }
 
     fun nextReveal() {
@@ -163,14 +243,28 @@ class GameStateHolder(
             roundNumber++
             GamePhase.NIGHT
         }
-        timerSeconds = if (phase == GamePhase.DAY) timerDurationDay else timerDurationNight
+        timerSeconds = if (phase == GamePhase.DAY) timerDurationDay else 0
         timerRunning = false
         votingActive = false
+        challengeQueue.clear()
     }
 
     fun resetTimer() {
-        timerSeconds = if (phase == GamePhase.DAY) timerDurationDay else timerDurationNight
+        timerSeconds = timerDurationDay
         timerRunning = false
+    }
+
+    // ---------- صف چالش ----------
+    fun addToChallenge(id: Int) {
+        if (!challengeQueue.contains(id)) challengeQueue.add(id)
+    }
+
+    fun removeFromChallenge(id: Int) {
+        challengeQueue.remove(id)
+    }
+
+    fun clearChallengeQueue() {
+        challengeQueue.clear()
     }
 
     // ---------- رأی‌گیری ----------
@@ -237,10 +331,19 @@ class GameStateHolder(
         phase = GamePhase.NIGHT
         timerRunning = false
         votingActive = false
+        challengeQueue.clear()
     }
 
     // ---------- بازنشانی کامل ----------
     fun resetAllData() {
+        abilities.clear()
+        abilities.addAll(com.hiddenrole.app.data.defaultAbilities())
+        abilityStorage.save(abilities.toList())
+
+        roleTemplates.clear()
+        roleTemplates.addAll(com.hiddenrole.app.data.defaultRoleTemplates())
+        roleTemplateStorage.save(roleTemplates.toList())
+
         presets.clear()
         presets.add(classicMafiaPreset())
         presetStorage.save(presets.toList())

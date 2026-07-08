@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -41,7 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddenrole.app.model.RolePreset
 import com.hiddenrole.app.state.GameStateHolder
-import com.hiddenrole.app.util.colorForId
+import com.hiddenrole.app.util.parseHexColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +52,9 @@ fun ScenariosScreen(
     onBack: () -> Unit,
     onCreatePreset: () -> Unit,
     onEditPreset: (RolePreset) -> Unit,
-    onPlayPreset: (RolePreset) -> Unit
+    onPlayPreset: (RolePreset) -> Unit,
+    onOpenRoleTemplates: () -> Unit,
+    onOpenAbilities: () -> Unit
 ) {
     var presetPendingDelete by remember { mutableStateOf<RolePreset?>(null) }
 
@@ -60,6 +64,12 @@ fun ScenariosScreen(
                 title = { Text("سناریوها") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("بازگشت") } },
                 actions = {
+                    IconButton(onClick = onOpenAbilities) {
+                        Icon(Icons.Default.Bolt, contentDescription = "قابلیت‌ها")
+                    }
+                    IconButton(onClick = onOpenRoleTemplates) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = "نقش‌های کتابخونه")
+                    }
                     IconButton(onClick = onCreatePreset) {
                         Icon(Icons.Default.Add, contentDescription = "سناریوی جدید")
                     }
@@ -91,7 +101,7 @@ fun ScenariosScreen(
                                 preset.teams.forEach { team ->
                                     Box(
                                         modifier = Modifier
-                                            .background(colorForId(team.id).copy(alpha = 0.2f), CircleShape)
+                                            .background(parseHexColor(team.colorHex).copy(alpha = 0.2f), CircleShape)
                                             .padding(horizontal = 10.dp, vertical = 4.dp)
                                     ) {
                                         Text(team.name, style = MaterialTheme.typography.labelSmall)
@@ -100,7 +110,7 @@ fun ScenariosScreen(
                             }
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "${preset.roles.size} نقش",
+                                "${preset.roleSlots.size} نقش",
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Spacer(Modifier.height(12.dp))

@@ -17,8 +17,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
@@ -58,10 +58,10 @@ fun HomeScreen(
     onNavigate: (String) -> Unit
 ) {
     val menuItems = listOf(
-        HomeMenuItem("شروع بازی", "یه سناریو انتخاب کن و شروع کن", Icons.Filled.PlayArrow, AccentPurple, Routes.SCENARIOS),
+        HomeMenuItem("شروع بازی", "یه سناریو انتخاب کن و شروع کن", Icons.Filled.PlayArrow, AccentPurple, Routes.START_GAME_PICK),
         HomeMenuItem("بازیکنان", "لیست دائمی دوستات", Icons.Filled.Groups, AccentTeal, Routes.ROSTER),
         HomeMenuItem("آمار", "برد و باخت هر بازیکن", Icons.Filled.BarChart, AccentAmber, Routes.STATS),
-        HomeMenuItem("سناریوها", "ساخت و ویرایش نقش و تیم", Icons.Filled.AutoAwesome, Color(0xFFEF5350), Routes.SCENARIOS),
+        HomeMenuItem("قوانین", "سناریو، نقش و قابلیت‌ها", Icons.Filled.Gavel, Color(0xFFEF5350), Routes.RULES_HOME),
         HomeMenuItem("تاریخچه بازی‌ها", "مرور بازی‌های قبلی", Icons.Filled.History, AccentDeep, Routes.HISTORY),
         HomeMenuItem("تنظیمات", "صدا، ویبره و زمان‌بندی", Icons.Filled.Settings, Color(0xFF78909C), Routes.SETTINGS)
     )
@@ -103,28 +103,39 @@ fun HomeScreen(
                     Card(
                         onClick = { onNavigate(item.route) },
                         modifier = Modifier.aspectRatio(1f),
-                        colors = CardDefaults.cardColors(containerColor = item.color.copy(alpha = 0.16f))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(16.dp),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .background(item.color, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(item.icon, contentDescription = item.title, tint = Color.White)
-                            }
-                            Column {
-                                Text(
-                                    item.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(item.color.copy(alpha = 0.28f), Color.Transparent)
+                                    )
                                 )
-                                Spacer(Modifier.height(2.dp))
-                                Text(item.subtitle, style = MaterialTheme.typography.bodySmall)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(16.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .background(item.color, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(item.icon, contentDescription = item.title, tint = Color.White)
+                                }
+                                Column {
+                                    Text(
+                                        item.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(item.subtitle, style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
                     }

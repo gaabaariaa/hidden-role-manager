@@ -1,5 +1,6 @@
 package com.hiddenrole.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddenrole.app.state.GameStateHolder
+import com.hiddenrole.app.util.parseHexColor
 
 @Composable
 fun RevealScreen(
@@ -72,11 +74,20 @@ fun RevealScreen(
                             color = Color.White
                         )
                         Spacer(Modifier.height(4.dp))
-                        Text(
-                            preset?.teamName(player.role?.teamId ?: "") ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White
-                        )
+                        val teamDef = preset?.team(player.role?.teamId ?: "")
+                        val teamColor = teamDef?.colorHex?.let { parseHexColor(it) } ?: Color.White
+                        Box(
+                            modifier = Modifier
+                                .background(teamColor, MaterialTheme.shapes.small)
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                teamDef?.name ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                         val description = player.role?.description ?: ""
                         if (description.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
