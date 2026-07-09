@@ -100,7 +100,7 @@ fun ScenariosScreen(
                             }
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "${preset.roles.size} نقش",
+                                "${preset.roleSlots.size} نقش",
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Spacer(Modifier.height(12.dp))

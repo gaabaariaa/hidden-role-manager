@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -48,8 +47,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.hiddenrole.app.model.RoleDef
 import com.hiddenrole.app.model.RolePreset
+import com.hiddenrole.app.model.RoleTemplate
+import com.hiddenrole.app.model.ScenarioRole
 import com.hiddenrole.app.model.TeamDef
 import com.hiddenrole.app.state.GameStateHolder
 import com.hiddenrole.app.util.parseHexColor
@@ -66,12 +66,12 @@ fun PresetBuilderScreen(
 
     var presetName by remember { mutableStateOf(existing?.name ?: "") }
     val teams = remember { mutableStateListOf<TeamDef>().apply { existing?.teams?.let { addAll(it) } } }
-    val roles = remember { mutableStateListOf<RoleDef>().apply { existing?.roles?.let { addAll(it) } } }
+    val slots = remember { mutableStateListOf<ScenarioRole>().apply { existing?.roleSlots?.let { addAll(it) } } }
 
     var teamBeingEdited by remember { mutableStateOf<TeamDef?>(null) }
     var showTeamDialog by remember { mutableStateOf(false) }
-    var roleBeingEdited by remember { mutableStateOf<RoleDef?>(null) }
-    var showRoleDialog by remember { mutableStateOf(false) }
+    var slotBeingEdited by remember { mutableStateOf<ScenarioRole?>(null) }
+    var showSlotDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -94,11 +94,11 @@ fun PresetBuilderScreen(
                     Spacer(Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            val fillerCount = roles.count { it.isFiller }
+                            val fillerCount = slots.count { it.isFiller }
                             when {
                                 presetName.isBlank() -> errorMessage = "اسم سناریو رو وارد کن"
                                 teams.isEmpty() -> errorMessage = "حداقل یک تیم لازمه"
-                                roles.isEmpty() -> errorMessage = "حداقل یک نقش لازمه"
+                                slots.isEmpty() -> errorMessage = "حداقل یک نقش لازمه"
                                 fillerCount != 1 -> errorMessage =
                                     "دقیقاً باید یک نقش «پیش‌فرض بقیه» انتخاب بشه"
                                 else -> {
@@ -106,7 +106,8 @@ fun PresetBuilderScreen(
                                         id = existing?.id ?: GameStateHolder.newId(),
                                         name = presetName.trim(),
                                         teams = teams.toList(),
-                                        roles = roles.toList()
+                                        roleSlots = slots.toList(),
+                                        nightOrder = existing?.nightOrder ?: emptyList()
                                     )
                                     state.savePreset(preset)
                                     onDone()
@@ -149,9 +150,7 @@ fun PresetBuilderScreen(
             }
             teams.forEach { team ->
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -172,7 +171,7 @@ fun PresetBuilderScreen(
                             Icon(Icons.Default.Edit, contentDescription = "ویرایش تیم")
                         }
                         IconButton(onClick = {
-                            val inUse = roles.any { it.teamId == team.id }
+                            val inUse = slots.any { it.teamId == team.id }
                             if (!inUse) {
                                 teams.remove(team)
                             } else {
@@ -194,31 +193,29 @@ fun PresetBuilderScreen(
                 Text("نقش‌ها", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 TextButton(
                     onClick = {
-                        if (teams.isEmpty()) {
-                            errorMessage = "اول یک تیم بساز"
-                        } else {
-                            roleBeingEdited = null
-                            showRoleDialog = true
+                        when {
+                            teams.isEmpty() -> errorMessage = "اول یک تیم بساز"
+                            state.roleTemplates.isEmpty() -> errorMessage =
+                                "اول از منوی اصلی، بخش «نقش‌ها» یه نقش بساز"
+                            else -> {
+                                slotBeingEdited = null
+                                showSlotDialog = true
+                            }
                         }
                     }
                 ) { Text("+ نقش جدید") }
             }
             Spacer(Modifier.height(8.dp))
 
-            // نقش‌ها به تفکیک تیم و با رنگ همون تیم دسته‌بندی می‌شن
             teams.forEach { team ->
-                val teamRoles = roles.filter { it.teamId == team.id }
-                if (teamRoles.isNotEmpty()) {
+                val teamSlots = slots.filter { it.teamId == team.id }
+                if (teamSlots.isNotEmpty()) {
                     val teamColor = parseHexColor(team.colorHex)
                     Row(
                         modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(teamColor, CircleShape)
-                        )
+                        Box(modifier = Modifier.size(10.dp).background(teamColor, CircleShape))
                         Spacer(Modifier.width(6.dp))
                         Text(
                             team.name,
@@ -227,12 +224,15 @@ fun PresetBuilderScreen(
                             color = teamColor
                         )
                     }
-                    teamRoles.forEach { role ->
-                        RoleRow(
-                            role = role,
+                    teamSlots.forEach { slot ->
+                        val template = state.roleTemplateFor(slot.roleTemplateId)
+                        SlotRow(
+                            slot = slot,
+                            templateName = template?.name ?: "نقش حذف‌شده",
+                            abilityNames = template?.abilityIds?.mapNotNull { state.abilityFor(it)?.name } ?: emptyList(),
                             teamColor = teamColor,
-                            onEdit = { roleBeingEdited = role; showRoleDialog = true },
-                            onDelete = { roles.remove(role) }
+                            onEdit = { slotBeingEdited = slot; showSlotDialog = true },
+                            onDelete = { slots.remove(slot) }
                         )
                     }
                 }
@@ -252,27 +252,30 @@ fun PresetBuilderScreen(
         )
     }
 
-    if (showRoleDialog) {
-        RoleEditDialog(
+    if (showSlotDialog) {
+        SlotEditDialog(
             teams = teams,
-            existing = roleBeingEdited,
-            hasOtherFiller = roles.any { it.isFiller && it.id != roleBeingEdited?.id },
-            onDismiss = { showRoleDialog = false },
-            onConfirm = { newRole ->
-                if (newRole.isFiller) {
-                    roles.replaceAll { if (it.id != newRole.id) it.copy(isFiller = false) else it }
+            roleTemplates = state.roleTemplates,
+            existing = slotBeingEdited,
+            hasOtherFiller = slots.any { it.isFiller && it.id != slotBeingEdited?.id },
+            onDismiss = { showSlotDialog = false },
+            onConfirm = { newSlot ->
+                if (newSlot.isFiller) {
+                    slots.replaceAll { if (it.id != newSlot.id) it.copy(isFiller = false) else it }
                 }
-                val index = roles.indexOfFirst { it.id == newRole.id }
-                if (index >= 0) roles[index] = newRole else roles.add(newRole)
-                showRoleDialog = false
+                val index = slots.indexOfFirst { it.id == newSlot.id }
+                if (index >= 0) slots[index] = newSlot else slots.add(newSlot)
+                showSlotDialog = false
             }
         )
     }
 }
 
 @Composable
-private fun RoleRow(
-    role: RoleDef,
+private fun SlotRow(
+    slot: ScenarioRole,
+    templateName: String,
+    abilityNames: List<String>,
     teamColor: Color,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -289,11 +292,11 @@ private fun RoleRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(role.name, fontWeight = FontWeight.Bold)
+                Text(templateName, fontWeight = FontWeight.Bold)
                 val badges = mutableListOf<String>()
-                if (role.isFiller) badges.add("پیش‌فرض بقیه")
-                if (role.hasNightAction) badges.add("اقدام شبانه")
-                if (!role.isFiller) badges.add("تعداد: ${role.defaultCount}")
+                if (slot.isFiller) badges.add("پیش‌فرض بقیه")
+                if (!slot.isFiller) badges.add("تعداد: ${slot.defaultCount}")
+                if (abilityNames.isNotEmpty()) badges.add(abilityNames.joinToString(" و "))
                 if (badges.isNotEmpty()) {
                     Text(badges.joinToString(" • "), style = MaterialTheme.typography.labelSmall)
                 }
@@ -370,34 +373,50 @@ private fun TeamEditDialog(
 }
 
 @Composable
-private fun RoleEditDialog(
+private fun SlotEditDialog(
     teams: List<TeamDef>,
-    existing: RoleDef?,
+    roleTemplates: List<RoleTemplate>,
+    existing: ScenarioRole?,
     hasOtherFiller: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (RoleDef) -> Unit
+    onConfirm: (ScenarioRole) -> Unit
 ) {
-    var name by remember { mutableStateOf(existing?.name ?: "") }
     var selectedTeamId by remember { mutableStateOf(existing?.teamId ?: teams.first().id) }
-    var description by remember { mutableStateOf(existing?.description ?: "") }
-    var hasNightAction by remember { mutableStateOf(existing?.hasNightAction ?: false) }
+    var selectedTemplateId by remember {
+        mutableStateOf(existing?.roleTemplateId ?: roleTemplates.first().id)
+    }
     var isFiller by remember { mutableStateOf(existing?.isFiller ?: false) }
     var defaultCount by remember { mutableStateOf(existing?.defaultCount ?: 1) }
     var teamMenuExpanded by remember { mutableStateOf(false) }
+    var templateMenuExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "نقش جدید" else "ویرایش نقش") },
         text = {
             Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("اسم نقش") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(8.dp))
+                Text("نقش (از کتابخونه)", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(4.dp))
+                Box {
+                    OutlinedButton(onClick = { templateMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(roleTemplates.find { it.id == selectedTemplateId }?.name ?: "انتخاب نقش")
+                    }
+                    DropdownMenu(expanded = templateMenuExpanded, onDismissRequest = { templateMenuExpanded = false }) {
+                        roleTemplates.forEach { template ->
+                            DropdownMenuItem(
+                                text = { Text(template.name) },
+                                onClick = {
+                                    selectedTemplateId = template.id
+                                    templateMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
 
+                Spacer(Modifier.height(12.dp))
+                Text("تیم", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(4.dp))
                 Box {
                     OutlinedButton(onClick = { teamMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(teams.find { it.id == selectedTeamId }?.name ?: "انتخاب تیم")
@@ -415,24 +434,7 @@ private fun RoleEditDialog(
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("توضیح نقش (اختیاری)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("اقدام شبانه داره؟")
-                    Switch(checked = hasNightAction, onCheckedChange = { hasNightAction = it })
-                }
-
+                Spacer(Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -468,19 +470,15 @@ private fun RoleEditDialog(
         },
         confirmButton = {
             Button(onClick = {
-                if (name.isNotBlank()) {
-                    onConfirm(
-                        RoleDef(
-                            id = existing?.id ?: GameStateHolder.newId(),
-                            name = name.trim(),
-                            teamId = selectedTeamId,
-                            description = description.trim(),
-                            hasNightAction = hasNightAction,
-                            isFiller = isFiller,
-                            defaultCount = if (isFiller) 0 else defaultCount
-                        )
+                onConfirm(
+                    ScenarioRole(
+                        id = existing?.id ?: GameStateHolder.newId(),
+                        roleTemplateId = selectedTemplateId,
+                        teamId = selectedTeamId,
+                        isFiller = isFiller,
+                        defaultCount = if (isFiller) 0 else defaultCount
                     )
-                }
+                )
             }) { Text("ذخیره") }
         },
         dismissButton = {
