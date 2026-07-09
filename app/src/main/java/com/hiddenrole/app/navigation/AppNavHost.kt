@@ -17,13 +17,16 @@ import com.hiddenrole.app.ui.screens.PresetBuilderScreen
 import com.hiddenrole.app.ui.screens.RevealScreen
 import com.hiddenrole.app.ui.screens.RoleTemplatesScreen
 import com.hiddenrole.app.ui.screens.RosterScreen
+import com.hiddenrole.app.ui.screens.RulesHomeScreen
 import com.hiddenrole.app.ui.screens.ScenariosScreen
 import com.hiddenrole.app.ui.screens.SettingsScreen
 import com.hiddenrole.app.ui.screens.StatsScreen
 
 object Routes {
     const val HOME = "home"
-    const val SCENARIOS = "scenarios"
+    const val START_GAME_PICK = "start_game_pick"
+    const val RULES_HOME = "rules_home"
+    const val SCENARIOS_MANAGE = "scenarios_manage"
     const val SCENARIO_BUILDER = "scenario_builder/{presetId}"
     const val ROLE_TEMPLATES = "role_templates"
     const val ABILITIES = "abilities"
@@ -47,7 +50,15 @@ fun AppNavHost(navController: NavHostController, state: GameStateHolder) {
             HomeScreen(state = state, onNavigate = { route -> navController.navigate(route) })
         }
 
-        composable(Routes.SCENARIOS) {
+        composable(Routes.RULES_HOME) {
+            RulesHomeScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { route -> navController.navigate(route) }
+            )
+        }
+
+        // «شروع بازی» از خانه: انتخاب سناریو و رفتن به مرحله‌ی بازیکن‌ها
+        composable(Routes.START_GAME_PICK) {
             ScenariosScreen(
                 state = state,
                 onBack = { navController.popBackStack() },
@@ -56,9 +67,21 @@ fun AppNavHost(navController: NavHostController, state: GameStateHolder) {
                 onPlayPreset = { preset ->
                     state.selectPresetToPlay(preset)
                     navController.navigate(Routes.GAME_PLAYERS)
-                },
-                onOpenRoleTemplates = { navController.navigate(Routes.ROLE_TEMPLATES) },
-                onOpenAbilities = { navController.navigate(Routes.ABILITIES) }
+                }
+            )
+        }
+
+        // «سناریوها» از داخل «قوانین»: همون صفحه، برای مدیریت سناریوها
+        composable(Routes.SCENARIOS_MANAGE) {
+            ScenariosScreen(
+                state = state,
+                onBack = { navController.popBackStack() },
+                onCreatePreset = { navController.navigate(Routes.scenarioBuilder("new")) },
+                onEditPreset = { preset -> navController.navigate(Routes.scenarioBuilder(preset.id)) },
+                onPlayPreset = { preset ->
+                    state.selectPresetToPlay(preset)
+                    navController.navigate(Routes.GAME_PLAYERS)
+                }
             )
         }
 
