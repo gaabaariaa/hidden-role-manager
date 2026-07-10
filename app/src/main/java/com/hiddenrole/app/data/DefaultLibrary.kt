@@ -1,6 +1,7 @@
 package com.hiddenrole.app.data
 
 import com.hiddenrole.app.model.Ability
+import com.hiddenrole.app.model.NightActionType
 import com.hiddenrole.app.model.RolePreset
 import com.hiddenrole.app.model.RoleTemplate
 import com.hiddenrole.app.model.ScenarioRole
@@ -11,19 +12,22 @@ fun defaultAbilities(): List<Ability> = listOf(
         id = "ability_night_kill",
         name = "کشتن شبانه",
         description = "این نقش هر شب می‌تونه یک نفر رو حذف کنه.",
-        wakesAtNight = true
+        wakesAtNight = true,
+        actionType = NightActionType.KILL
     ),
     Ability(
         id = "ability_save",
         name = "نجات دادن",
         description = "این نقش هر شب می‌تونه یک نفر رو از حذف نجات بده.",
-        wakesAtNight = true
+        wakesAtNight = true,
+        actionType = NightActionType.SAVE
     ),
     Ability(
         id = "ability_inquiry",
         name = "استعلام هویت",
         description = "این نقش هر شب می‌تونه هویت یک نفر رو بفهمه.",
-        wakesAtNight = true
+        wakesAtNight = true,
+        actionType = NightActionType.INVESTIGATE
     )
 )
 

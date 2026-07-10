@@ -67,6 +67,42 @@ fun PresetBuilderScreen(
     var presetName by remember { mutableStateOf(existing?.name ?: "") }
     val teams = remember { mutableStateListOf<TeamDef>().apply { existing?.teams?.let { addAll(it) } } }
     val slots = remember { mutableStateListOf<ScenarioRole>().apply { existing?.roleSlots?.let { addAll(it) } } }
+    val nightOrderSlotIds = remember { mutableStateListOf<String>().apply { existing?.nightOrder?.let { addAll(it) } } }
+
+    fun qualifyingNightSlots(): List<ScenarioRole> {
+        val qualifying = slots.filter { slot ->
+            state.roleTemplateFor(slot.roleTemplateId)?.abilityIds
+                ?.any { abilityId -> state.abilityFor(abilityId)?.wakesAtNight == true } == true
+        }
+        return qualifying.sortedBy { slot ->
+            val idx = nightOrderSlotIds.indexOf(slot.id)
+            if (idx >= 0) idx else Int.MAX_VALUE
+        }
+    }
+
+    fun moveNightOrderUp(slotId: String) {
+        val current = qualifyingNightSlots().map { it.id }.toMutableList()
+        val idx = current.indexOf(slotId)
+        if (idx > 0) {
+            val temp = current[idx - 1]
+            current[idx - 1] = current[idx]
+            current[idx] = temp
+            nightOrderSlotIds.clear()
+            nightOrderSlotIds.addAll(current)
+        }
+    }
+
+    fun moveNightOrderDown(slotId: String) {
+        val current = qualifyingNightSlots().map { it.id }.toMutableList()
+        val idx = current.indexOf(slotId)
+        if (idx in 0 until current.size - 1) {
+            val temp = current[idx + 1]
+            current[idx + 1] = current[idx]
+            current[idx] = temp
+            nightOrderSlotIds.clear()
+            nightOrderSlotIds.addAll(current)
+        }
+    }
 
     var teamBeingEdited by remember { mutableStateOf<TeamDef?>(null) }
     var showTeamDialog by remember { mutableStateOf(false) }
@@ -107,7 +143,7 @@ fun PresetBuilderScreen(
                                         name = presetName.trim(),
                                         teams = teams.toList(),
                                         roleSlots = slots.toList(),
-                                        nightOrder = existing?.nightOrder ?: emptyList()
+                                        nightOrder = qualifyingNightSlots().map { it.id }
                                     )
                                     state.savePreset(preset)
                                     onDone()
@@ -234,6 +270,42 @@ fun PresetBuilderScreen(
                             onEdit = { slotBeingEdited = slot; showSlotDialog = true },
                             onDelete = { slots.remove(slot) }
                         )
+                    }
+                }
+            }
+
+            val nightCandidates = qualifyingNightSlots()
+            if (nightCandidates.isNotEmpty()) {
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    "ترتیب بیدار شدن شب",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "مشخص کن گرداننده هر شب اول کدوم نقش رو بیدار کنه",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(8.dp))
+                nightCandidates.forEachIndexed { index, slot ->
+                    val template = state.roleTemplateFor(slot.roleTemplateId)
+                    val teamColor = teams.find { it.id == slot.teamId }
+                        ?.let { parseHexColor(it.colorHex) }
+                        ?: MaterialTheme.colorScheme.primary
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(10.dp).background(teamColor, CircleShape))
+                            Spacer(Modifier.width(8.dp))
+                            Text("${index + 1}. ${template?.name ?: "نقش حذف‌شده"}")
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { moveNightOrderUp(slot.id) }) { Text("▲") }
+                            IconButton(onClick = { moveNightOrderDown(slot.id) }) { Text("▼") }
+                        }
                     }
                 }
             }

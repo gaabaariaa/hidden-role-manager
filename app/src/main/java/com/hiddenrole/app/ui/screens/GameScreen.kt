@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -32,6 +35,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -51,6 +55,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.hiddenrole.app.model.GamePhase
+import com.hiddenrole.app.model.NightActionType
+import com.hiddenrole.app.model.NightStep
 import com.hiddenrole.app.model.Player
 import com.hiddenrole.app.model.RolePreset
 import com.hiddenrole.app.state.GameStateHolder
@@ -120,11 +126,28 @@ fun GameScreen(
             Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
 
                 if (state.phase == GamePhase.NIGHT) {
+                    NightActionWizard(state = state)
+                    Spacer(Modifier.height(16.dp))
                     Text("نقش‌ها (فقط برای گرداننده)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     RolesOverview(preset = preset, players = state.players)
                     Spacer(Modifier.height(12.dp))
                 } else {
+                    state.lastNightResult?.let { resultText ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        ) {
+                            Text(
+                                resultText,
+                                modifier = Modifier.padding(12.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
                     // تایمر فقط توی فاز روز
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
@@ -323,6 +346,134 @@ fun GameScreen(
             }
         )
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NightActionWizard(state: GameStateHolder) {
+    if (state.nightSteps.isEmpty()) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "این سناریو اقدام شبانه‌ی مشخصی نداره.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+        return
+    }
+
+    if (state.isNightSequenceDone()) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("همه‌ی اقدام‌های شب انجام شد ✅", fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "برای ادامه، «رفتن به روز» رو از پایین صفحه بزن.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        return
+    }
+
+    val step = state.currentNightStep() ?: return
+    var selectedTargetId by remember(state.currentNightStepIndex) { mutableStateOf<Int?>(null) }
+    val investigationResult = state.nightInvestigationResult
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "مرحله ${state.currentNightStepIndex + 1} از ${state.nightSteps.size}",
+                style = MaterialTheme.typography.labelSmall
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                nightStepPrompt(step),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if (step.actionType == NightActionType.INVESTIGATE && investigationResult != null) {
+                val targetName = state.players.find { it.id == investigationResult.first }?.name ?: "-"
+                Text("نتیجه:", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "«$targetName» عضو تیم «${investigationResult.second}» هست.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { state.advanceNightStep() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("متوجه شدم، بعدی")
+                }
+            } else if (step.actionType == NightActionType.NONE) {
+                Text(
+                    "این نقش فقط بیدار می‌شه؛ هدف خاصی لازم نیست.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { state.advanceNightStep() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("بعدی")
+                }
+            } else {
+                Text("انتخاب هدف:", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 240.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    state.players.filter { it.isAlive }.forEach { p ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedTargetId = p.id }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = selectedTargetId == p.id, onClick = { selectedTargetId = p.id })
+                            Spacer(Modifier.width(4.dp))
+                            PlayerAvatar(name = p.name, size = 28.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text(p.name)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row {
+                    OutlinedButton(onClick = { state.advanceNightStep() }, modifier = Modifier.weight(1f)) {
+                        Text("رد کردن")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            state.submitNightStepTarget(selectedTargetId)
+                            if (step.actionType != NightActionType.INVESTIGATE) {
+                                state.advanceNightStep()
+                            }
+                        },
+                        enabled = selectedTargetId != null,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("تایید")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun nightStepPrompt(step: NightStep): String = when (step.actionType) {
+    NightActionType.KILL -> "«${step.label}» بیدار شه و قربانی امشب رو انتخاب کنه"
+    NightActionType.SAVE -> "«${step.label}» بیدار شه و نفر مورد نظرش رو نجات بده"
+    NightActionType.INVESTIGATE -> "«${step.label}» بیدار شه و هویت یک نفر رو استعلام بگیره"
+    NightActionType.CUSTOM -> "«${step.label}» بیدار شه و اقدامش رو انجام بده"
+    NightActionType.NONE -> "«${step.label}» بیدار شه"
 }
 
 @OptIn(ExperimentalLayoutApi::class)

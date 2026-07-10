@@ -5,13 +5,24 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.serialization.Serializable
 
+/** نوع اثر یه قابلیت روی بازی؛ برای هدایت گرداننده هنگام اجرای شب استفاده می‌شه. */
+@Serializable
+enum class NightActionType {
+    NONE,        // فقط بیدار می‌شه، بدون انتخاب هدف خاص (مثلاً هماهنگی تیمی بدون اثر خودکار)
+    KILL,        // یک نفر رو انتخاب و حذف می‌کنه
+    SAVE,        // یک نفر رو از حذف نجات می‌ده (جلوی KILL همون شب رو می‌گیره)
+    INVESTIGATE, // یک نفر رو انتخاب می‌کنه و گرداننده تیمش رو به‌عنوان نتیجه می‌بینه
+    CUSTOM       // فقط یک نفر انتخاب می‌شه؛ اثرش دست خود گرداننده‌ست
+}
+
 /** یه قابلیت/توانایی که می‌تونه به یک یا چند نقش اضافه بشه (مثل «کشتن شبانه»، «نجات دادن»). */
 @Serializable
 data class Ability(
     val id: String,
     val name: String,
     val description: String = "",
-    val wakesAtNight: Boolean = false
+    val wakesAtNight: Boolean = false,
+    val actionType: NightActionType = NightActionType.NONE
 )
 
 /** یه نقش قابل استفاده‌ی مجدد، شامل چند قابلیت انتخابی؛ مستقل از هر سناریوی خاص. */
@@ -73,6 +84,15 @@ class Player(
 }
 
 enum class GamePhase { DAY, NIGHT }
+
+/** یک مرحله از اجرای شب: کی بیدار شه، چه اقدامی انجام بده. فقط در حافظه‌ست، ذخیره نمی‌شه. */
+data class NightStep(
+    val teamId: String,
+    val abilityId: String,
+    val actionType: NightActionType,
+    val label: String,
+    val actingPlayerIds: List<Int>
+)
 
 @Serializable
 data class SavedPlayer(

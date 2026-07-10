@@ -17,6 +17,8 @@ import com.hiddenrole.app.model.AppSettings
 import com.hiddenrole.app.model.AssignedRole
 import com.hiddenrole.app.model.GameHistoryEntry
 import com.hiddenrole.app.model.GamePhase
+import com.hiddenrole.app.model.NightActionType
+import com.hiddenrole.app.model.NightStep
 import com.hiddenrole.app.model.Player
 import com.hiddenrole.app.model.PlayerResult
 import com.hiddenrole.app.model.RolePreset
@@ -65,6 +67,14 @@ class GameStateHolder(
     var votingActive by mutableStateOf(false)
 
     val challengeQueue = mutableStateListOf<Int>()
+
+    // --- اجرای مرحله‌به‌مرحله‌ی شب ---
+    var nightSteps by mutableStateOf<List<NightStep>>(emptyList())
+    var currentNightStepIndex by mutableStateOf(0)
+    var nightPendingKillPlayerId by mutableStateOf<Int?>(null)
+    var nightSavedPlayerId by mutableStateOf<Int?>(null)
+    var nightInvestigationResult by mutableStateOf<Pair<Int, String>?>(null)
+    var lastNightResult by mutableStateOf<String?>(null)
 
     val history = mutableStateListOf<GameHistoryEntry>()
 
@@ -227,6 +237,8 @@ class GameStateHolder(
         timerRunning = false
         votingActive = false
         challengeQueue.clear()
+        lastNightResult = null
+        startNewNight()
     }
 
     fun nextReveal() {
@@ -237,13 +249,16 @@ class GameStateHolder(
 
     // ---------- فاز و تایمر ----------
     fun switchPhase() {
-        phase = if (phase == GamePhase.NIGHT) {
-            GamePhase.DAY
+        if (phase == GamePhase.NIGHT) {
+            resolveNightActions()
+            phase = GamePhase.DAY
+            timerSeconds = timerDurationDay
         } else {
             roundNumber++
-            GamePhase.NIGHT
+            phase = GamePhase.NIGHT
+            timerSeconds = 0
+            startNewNight()
         }
-        timerSeconds = if (phase == GamePhase.DAY) timerDurationDay else 0
         timerRunning = false
         votingActive = false
         challengeQueue.clear()
@@ -252,6 +267,106 @@ class GameStateHolder(
     fun resetTimer() {
         timerSeconds = timerDurationDay
         timerRunning = false
+    }
+
+    // ---------- اجرای شب ----------
+    private fun startNewNight() {
+        nightSteps = computeNightSteps()
+        currentNightStepIndex = 0
+        nightPendingKillPlayerId = null
+        nightSavedPlayerId = null
+        nightInvestigationResult = null
+    }
+
+    private fun computeNightSteps(): List<NightStep> {
+        val preset = selectedPreset ?: return emptyList()
+        data class GroupKey(val teamId: String, val abilityId: String)
+
+        val groups = linkedMapOf<GroupKey, MutableList<Player>>()
+        players.forEach { player ->
+            if (!player.isAlive) return@forEach
+            val role = player.role ?: return@forEach
+            val template = roleTemplateFor(role.roleTemplateId) ?: return@forEach
+            template.abilityIds.forEach { abilityId ->
+                val ability = abilityFor(abilityId) ?: return@forEach
+                if (ability.wakesAtNight) {
+                    val key = GroupKey(role.teamId, abilityId)
+                    groups.getOrPut(key) { mutableListOf() }.add(player)
+                }
+            }
+        }
+
+        fun orderIndex(key: GroupKey): Int {
+            val slot = preset.roleSlots.firstOrNull { slot ->
+                slot.teamId == key.teamId &&
+                    roleTemplateFor(slot.roleTemplateId)?.abilityIds?.contains(key.abilityId) == true
+            }
+            val idx = slot?.let { preset.nightOrder.indexOf(it.id) } ?: -1
+            return if (idx >= 0) idx else Int.MAX_VALUE
+        }
+
+        return groups.entries
+            .sortedBy { orderIndex(it.key) }
+            .map { (key, groupPlayers) ->
+                val ability = abilityFor(key.abilityId)
+                val distinctRoleNames = groupPlayers.mapNotNull { it.role?.name }.distinct()
+                val label = if (distinctRoleNames.size == 1) {
+                    distinctRoleNames.first()
+                } else {
+                    preset.teamName(key.teamId)
+                }
+                NightStep(
+                    teamId = key.teamId,
+                    abilityId = key.abilityId,
+                    actionType = ability?.actionType ?: NightActionType.NONE,
+                    label = label,
+                    actingPlayerIds = groupPlayers.map { it.id }
+                )
+            }
+    }
+
+    fun currentNightStep(): NightStep? = nightSteps.getOrNull(currentNightStepIndex)
+
+    fun isNightSequenceDone(): Boolean = currentNightStepIndex >= nightSteps.size
+
+    /** ثبت انتخاب گرداننده برای مرحله‌ی فعلی و رفتن به مرحله‌ی بعد. */
+    fun submitNightStepTarget(targetPlayerId: Int?) {
+        val step = currentNightStep() ?: return
+        when (step.actionType) {
+            NightActionType.KILL -> nightPendingKillPlayerId = targetPlayerId
+            NightActionType.SAVE -> nightSavedPlayerId = targetPlayerId
+            NightActionType.INVESTIGATE -> {
+                val teamName = targetPlayerId
+                    ?.let { id -> players.find { it.id == id } }
+                    ?.role?.teamId
+                    ?.let { selectedPreset?.teamName(it) }
+                if (targetPlayerId != null && teamName != null) {
+                    nightInvestigationResult = targetPlayerId to teamName
+                }
+            }
+            else -> { /* NONE و CUSTOM اثر خودکاری روی وضعیت بازی ندارن */ }
+        }
+    }
+
+    /** رفتن به مرحله‌ی بعدیِ شب (بعد از دیدن نتیجه یا بدون ثبت انتخاب). */
+    fun advanceNightStep() {
+        nightInvestigationResult = null
+        if (currentNightStepIndex < nightSteps.size) currentNightStepIndex++
+    }
+
+    private fun resolveNightActions() {
+        val victimId = nightPendingKillPlayerId
+        lastNightResult = if (victimId != null && victimId != nightSavedPlayerId) {
+            val victim = players.find { it.id == victimId }
+            if (victim != null && victim.isAlive) {
+                victim.isAlive = false
+                "دیشب «${victim.name}» حذف شد."
+            } else {
+                "دیشب کسی حذف نشد."
+            }
+        } else {
+            "دیشب کسی حذف نشد."
+        }
     }
 
     // ---------- صف چالش ----------
@@ -332,6 +447,12 @@ class GameStateHolder(
         timerRunning = false
         votingActive = false
         challengeQueue.clear()
+        nightSteps = emptyList()
+        currentNightStepIndex = 0
+        nightPendingKillPlayerId = null
+        nightSavedPlayerId = null
+        nightInvestigationResult = null
+        lastNightResult = null
     }
 
     // ---------- بازنشانی کامل ----------
