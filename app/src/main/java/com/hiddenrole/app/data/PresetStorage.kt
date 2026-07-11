@@ -14,14 +14,14 @@ class PresetStorage(private val context: Context) {
     fun load(): List<RolePreset> {
         return try {
             if (!file.exists()) {
-                val seed = listOf(classicMafiaPreset())
+                val seed = listOf(classicMafiaPreset(), sarkoobPreset())
                 save(seed)
                 return seed
             }
             val text = file.readText()
             if (text.isBlank()) emptyList() else json.decodeFromString<List<RolePreset>>(text)
         } catch (e: Exception) {
-            listOf(classicMafiaPreset())
+            listOf(classicMafiaPreset(), sarkoobPreset())
         }
     }
 

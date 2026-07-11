@@ -14,14 +14,14 @@ class RoleTemplateStorage(private val context: Context) {
     fun load(): List<RoleTemplate> {
         return try {
             if (!file.exists()) {
-                val seed = defaultRoleTemplates()
+                val seed = defaultRoleTemplates() + sarkoobRoleTemplates()
                 save(seed)
                 return seed
             }
             val text = file.readText()
             if (text.isBlank()) emptyList() else json.decodeFromString<List<RoleTemplate>>(text)
         } catch (e: Exception) {
-            defaultRoleTemplates()
+            defaultRoleTemplates() + sarkoobRoleTemplates()
         }
     }
 

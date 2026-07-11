@@ -76,6 +76,9 @@ class GameStateHolder(
     var nightInvestigationResult by mutableStateOf<Pair<Int, String>?>(null)
     var lastNightResult by mutableStateOf<String?>(null)
 
+    // تعداد دفعات باقی‌مانده‌ی هر قابلیت با سقف مشخص (شناسه‌ی قابلیت -> تعداد باقی‌مانده)
+    val abilityUsesRemaining = mutableStateMapOf<String, Int>()
+
     val history = mutableStateListOf<GameHistoryEntry>()
 
     init {
@@ -238,7 +241,27 @@ class GameStateHolder(
         votingActive = false
         challengeQueue.clear()
         lastNightResult = null
+        initializeAbilityUses()
         startNewNight()
+    }
+
+    /** برای هر قابلیتی که سقف دفعات داره، ظرفیت اولیه‌ش رو (ثابت یا مقیاس‌شده با تعداد بازیکن) حساب می‌کنه. */
+    private fun initializeAbilityUses() {
+        val preset = selectedPreset
+        abilityUsesRemaining.clear()
+        if (preset == null) return
+        val abilityIds = preset.roleSlots
+            .flatMap { slot -> roleTemplateFor(slot.roleTemplateId)?.abilityIds ?: emptyList() }
+            .distinct()
+        abilityIds.forEach { abilityId ->
+            val ability = abilityFor(abilityId) ?: return@forEach
+            val cap = when {
+                ability.usesScaleWithPlayers -> maxOf(1, players.size / 6)
+                ability.maxUses != null -> ability.maxUses
+                else -> null
+            }
+            if (cap != null) abilityUsesRemaining[abilityId] = cap
+        }
     }
 
     fun nextReveal() {
@@ -306,6 +329,7 @@ class GameStateHolder(
         }
 
         return groups.entries
+            .filter { (key, _) -> (abilityUsesRemaining[key.abilityId] ?: 1) > 0 }
             .sortedBy { orderIndex(it.key) }
             .map { (key, groupPlayers) ->
                 val ability = abilityFor(key.abilityId)
@@ -320,7 +344,8 @@ class GameStateHolder(
                     abilityId = key.abilityId,
                     actionType = ability?.actionType ?: NightActionType.NONE,
                     label = label,
-                    actingPlayerIds = groupPlayers.map { it.id }
+                    actingPlayerIds = groupPlayers.map { it.id },
+                    usesRemaining = abilityUsesRemaining[key.abilityId]
                 )
             }
     }
@@ -345,6 +370,9 @@ class GameStateHolder(
                 }
             }
             else -> { /* NONE و CUSTOM اثر خودکاری روی وضعیت بازی ندارن */ }
+        }
+        abilityUsesRemaining[step.abilityId]?.let { remaining ->
+            abilityUsesRemaining[step.abilityId] = (remaining - 1).coerceAtLeast(0)
         }
     }
 
@@ -458,15 +486,16 @@ class GameStateHolder(
     // ---------- بازنشانی کامل ----------
     fun resetAllData() {
         abilities.clear()
-        abilities.addAll(com.hiddenrole.app.data.defaultAbilities())
+        abilities.addAll(com.hiddenrole.app.data.defaultAbilities() + com.hiddenrole.app.data.sarkoobAbilities())
         abilityStorage.save(abilities.toList())
 
         roleTemplates.clear()
-        roleTemplates.addAll(com.hiddenrole.app.data.defaultRoleTemplates())
+        roleTemplates.addAll(com.hiddenrole.app.data.defaultRoleTemplates() + com.hiddenrole.app.data.sarkoobRoleTemplates())
         roleTemplateStorage.save(roleTemplates.toList())
 
         presets.clear()
         presets.add(classicMafiaPreset())
+        presets.add(com.hiddenrole.app.data.sarkoobPreset())
         presetStorage.save(presets.toList())
 
         roster.clear()

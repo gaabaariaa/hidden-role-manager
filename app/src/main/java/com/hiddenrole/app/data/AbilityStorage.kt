@@ -14,14 +14,14 @@ class AbilityStorage(private val context: Context) {
     fun load(): List<Ability> {
         return try {
             if (!file.exists()) {
-                val seed = defaultAbilities()
+                val seed = defaultAbilities() + sarkoobAbilities()
                 save(seed)
                 return seed
             }
             val text = file.readText()
             if (text.isBlank()) emptyList() else json.decodeFromString<List<Ability>>(text)
         } catch (e: Exception) {
-            defaultAbilities()
+            defaultAbilities() + sarkoobAbilities()
         }
     }
 

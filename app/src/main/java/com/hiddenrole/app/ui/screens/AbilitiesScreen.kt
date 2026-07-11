@@ -112,6 +112,10 @@ fun AbilitiesScreen(
                                             "نوع اقدام: ${actionTypeLabel(ability.actionType)}",
                                             style = MaterialTheme.typography.labelSmall
                                         )
+                                        Text(
+                                            "سقف دفعات: ${usesCapLabel(ability)}",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
                                     }
                                     if (ability.description.isNotBlank()) {
                                         Text(ability.description, style = MaterialTheme.typography.bodySmall)
@@ -164,6 +168,9 @@ private fun AbilityEditDialog(
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var wakesAtNight by remember { mutableStateOf(existing?.wakesAtNight ?: false) }
     var actionType by remember { mutableStateOf(existing?.actionType ?: NightActionType.NONE) }
+    var hasUsesCap by remember { mutableStateOf(existing?.maxUses != null || existing?.usesScaleWithPlayers == true) }
+    var usesScaleWithPlayers by remember { mutableStateOf(existing?.usesScaleWithPlayers ?: false) }
+    var fixedUses by remember { mutableStateOf(existing?.maxUses ?: 1) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -213,6 +220,40 @@ private fun AbilityEditDialog(
                             }
                         }
                     }
+
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("سقف دفعات استفاده در کل بازی داره؟")
+                        Switch(checked = hasUsesCap, onCheckedChange = { hasUsesCap = it })
+                    }
+                    if (hasUsesCap) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("مقیاس با تعداد بازیکن؟ (هر ۶ نفر یکی بیشتر)")
+                            Switch(checked = usesScaleWithPlayers, onCheckedChange = { usesScaleWithPlayers = it })
+                        }
+                        if (!usesScaleWithPlayers) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("تعداد دفعات ثابت")
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { if (fixedUses > 1) fixedUses-- }) { Text("−") }
+                                    Text(fixedUses.toString(), modifier = Modifier.padding(horizontal = 8.dp))
+                                    IconButton(onClick = { fixedUses++ }) { Text("+") }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -225,7 +266,9 @@ private fun AbilityEditDialog(
                             name = name.trim(),
                             description = description.trim(),
                             wakesAtNight = wakesAtNight,
-                            actionType = if (wakesAtNight) actionType else NightActionType.NONE
+                            actionType = if (wakesAtNight) actionType else NightActionType.NONE,
+                            maxUses = if (wakesAtNight && hasUsesCap && !usesScaleWithPlayers) fixedUses else null,
+                            usesScaleWithPlayers = wakesAtNight && hasUsesCap && usesScaleWithPlayers
                         )
                     )
                 }
@@ -235,6 +278,12 @@ private fun AbilityEditDialog(
             OutlinedButton(onClick = onDismiss) { Text("انصراف") }
         }
     )
+}
+
+private fun usesCapLabel(ability: Ability): String = when {
+    ability.usesScaleWithPlayers -> "به ازای هر ۶ بازیکن یکی بیشتر (حداقل ۱)"
+    ability.maxUses != null -> "${ability.maxUses} بار در کل بازی"
+    else -> "نامحدود"
 }
 
 private fun actionTypeLabel(type: NightActionType): String = when (type) {

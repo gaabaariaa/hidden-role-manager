@@ -22,7 +22,9 @@ data class Ability(
     val name: String,
     val description: String = "",
     val wakesAtNight: Boolean = false,
-    val actionType: NightActionType = NightActionType.NONE
+    val actionType: NightActionType = NightActionType.NONE,
+    val maxUses: Int? = null,               // null = نامحدود در طول بازی
+    val usesScaleWithPlayers: Boolean = false // اگه true: سقف = حداکثر(۱، تعداد بازیکن‌ها / ۶)
 )
 
 /** یه نقش قابل استفاده‌ی مجدد، شامل چند قابلیت انتخابی؛ مستقل از هر سناریوی خاص. */
@@ -91,7 +93,8 @@ data class NightStep(
     val abilityId: String,
     val actionType: NightActionType,
     val label: String,
-    val actingPlayerIds: List<Int>
+    val actingPlayerIds: List<Int>,
+    val usesRemaining: Int? = null
 )
 
 @Serializable

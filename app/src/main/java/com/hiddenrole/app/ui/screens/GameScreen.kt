@@ -396,6 +396,14 @@ private fun NightActionWizard(state: GameStateHolder) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
+            step.usesRemaining?.let { remaining ->
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "این توانایی $remaining بار دیگه قابل استفاده‌ست",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             Spacer(Modifier.height(12.dp))
 
             if (step.actionType == NightActionType.INVESTIGATE && investigationResult != null) {
